@@ -6,10 +6,12 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class LugarAdapter(private val items: List<String>) :
-    RecyclerView.Adapter<LugarAdapter.LugarViewHolder>() {
+class LugarAdapter(
+    private val lugares: List<LugarItem>,
+    private val onItemClick: (LugarItem) -> Unit
+) : RecyclerView.Adapter<LugarAdapter.LugarViewHolder>() {
 
-    class LugarViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class LugarViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val tvNombre: TextView = itemView.findViewById(R.id.tvNombre)
     }
 
@@ -20,8 +22,13 @@ class LugarAdapter(private val items: List<String>) :
     }
 
     override fun onBindViewHolder(holder: LugarViewHolder, position: Int) {
-        holder.tvNombre.text = items[position]
+        val lugar = lugares[position]
+        holder.tvNombre.text = lugar.nombre
+
+        holder.itemView.setOnClickListener {
+            onItemClick(lugar)
+        }
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = lugares.size
 }

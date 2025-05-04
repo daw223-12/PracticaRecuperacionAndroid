@@ -1,6 +1,7 @@
 package com.example.practicarecuperacionandroid
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.View
 import android.widget.RadioButton
@@ -15,6 +16,8 @@ class MainActivity : AppCompatActivity() {
     private val NUEVO_LUGAR_REQUEST = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val sharedPref = getSharedPreferences("prefs", MODE_PRIVATE)
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
@@ -25,6 +28,21 @@ class MainActivity : AppCompatActivity() {
         val rbMapa = findViewById<RadioButton>(R.id.rbMapa)
         val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
 
+        val vista = getSharedPreferences("prefs", MODE_PRIVATE)
+            .getString("vista_actual", "lista")
+
+        if (vista == "mapa") {
+            rbMapa.isChecked = true;
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, MapaFragment())
+                .commit()
+            // marcá el toggle visual si tenés uno
+        } else {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, ListaFragment())
+                .commit()
+        }
+
         ViewCompat.setOnApplyWindowInsetsListener(mainLayout) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -32,15 +50,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Fragmento por defecto
-        val transaction = supportFragmentManager.beginTransaction()
+        /*val transaction = supportFragmentManager.beginTransaction()
         transaction.replace(R.id.fragmentContainer, ListaFragment())
-        transaction.commit()
+        transaction.commit()*/
 
         rbLista.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 val tx = supportFragmentManager.beginTransaction()
                 tx.replace(R.id.fragmentContainer, ListaFragment())
                 tx.commit()
+
+                sharedPref.edit().putString("vista_actual", "lista").apply()
             }
         }
 
@@ -49,6 +69,8 @@ class MainActivity : AppCompatActivity() {
                 val tx = supportFragmentManager.beginTransaction()
                 tx.replace(R.id.fragmentContainer, MapaFragment())
                 tx.commit()
+                val sharedPref = getSharedPreferences("prefs", MODE_PRIVATE)
+                sharedPref.edit().putString("vista_actual", "mapa").apply()
             }
         }
 
