@@ -2,7 +2,9 @@ package com.example.practicarecuperacionandroid
 
 import android.app.DatePickerDialog
 import android.content.ContentValues
+import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
 import android.widget.*
 import androidx.activity.enableEdgeToEdge
@@ -13,24 +15,28 @@ import com.google.android.material.slider.Slider
 import java.util.Calendar
 
 class NuevoLugarActivity : AppCompatActivity() {
+    private val REQUEST_IMAGE_PICK = 1001
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_nuevo_lugar)
 
+        // Elementos de la UI y configuración de estos
         val root = findViewById<View>(R.id.nuevo_lugar_root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-
         val etNombre = findViewById<EditText>(R.id.etNombre)
         val etTipo = findViewById<EditText>(R.id.etTipo)
         val etDireccion = findViewById<EditText>(R.id.etDireccion)
         val etTelefono = findViewById<EditText>(R.id.etTelefono)
         val etWeb = findViewById<EditText>(R.id.etWeb)
         val etFechaHora = findViewById<EditText>(R.id.etFechaHora)
+        etFechaHora.inputType = InputType.TYPE_NULL
+        etFechaHora.isFocusable = false
         val sliderContainer = findViewById<FrameLayout>(R.id.sliderContainer)
         val slider = Slider(this)
         slider.valueFrom = 0f
@@ -41,11 +47,11 @@ class NuevoLugarActivity : AppCompatActivity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
         )
-
         sliderContainer.addView(slider)
-
         val etFoto = findViewById<EditText>(R.id.etFoto)
-
+        // Evita teclado
+        etFoto.inputType = InputType.TYPE_NULL
+        etFoto.isFocusable = false
         val btnOk = findViewById<Button>(R.id.btnOk)
         val btnVolver = findViewById<Button>(R.id.btnVolver)
 
@@ -62,6 +68,12 @@ class NuevoLugarActivity : AppCompatActivity() {
             }, año, mes, dia)
 
             datePicker.show()
+        }
+
+        etFoto.setOnClickListener {
+            val intent = Intent(Intent.ACTION_PICK)
+            intent.type = "image/*"
+            startActivityForResult(intent, REQUEST_IMAGE_PICK)
         }
 
         btnOk.setOnClickListener {
@@ -107,6 +119,21 @@ class NuevoLugarActivity : AppCompatActivity() {
 
         btnVolver.setOnClickListener {
             finish() // simplemente cerramos sin guardar
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_IMAGE_PICK && resultCode == RESULT_OK && data != null) {
+            val uri = data.data
+
+            val etFoto = findViewById<EditText>(R.id.etFoto)
+            val previewImage = findViewById<ImageView>(R.id.previewImage)
+
+            etFoto.setText(uri.toString())
+            previewImage.setImageURI(uri)
+            previewImage.visibility = View.VISIBLE
         }
     }
 }
