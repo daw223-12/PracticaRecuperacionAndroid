@@ -11,8 +11,15 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.InputType
+import android.util.Log
 import android.view.View
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.Spinner
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
@@ -20,6 +27,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.slider.Slider
 import java.io.File
+import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -94,28 +102,43 @@ class NuevoLugarActivity : AppCompatActivity() {
                 val tipo = cursor.getString(cursor.getColumnIndexOrThrow("tipo"))
                 spinnerTipo.setSelection(tipos.indexOf(tipo))
                 etDireccion.setText(cursor.getString(cursor.getColumnIndexOrThrow("direccion")))
-                etTelefono.setText(cursor.getInt(cursor.getColumnIndexOrThrow("telefono")).toString())
+                etTelefono.setText(
+                    cursor.getInt(cursor.getColumnIndexOrThrow("telefono")).toString()
+                )
                 etWeb.setText(cursor.getString(cursor.getColumnIndexOrThrow("web")))
                 etFechaHora.setText(cursor.getString(cursor.getColumnIndexOrThrow("fechaHora")))
-                val calificacion = cursor.getFloat(cursor.getColumnIndexOrThrow("calificacion")).toInt().toFloat()
+                val calificacion =
+                    cursor.getFloat(cursor.getColumnIndexOrThrow("calificacion")).toInt().toFloat()
                 slider.value = calificacion
                 val uriStr = cursor.getString(cursor.getColumnIndexOrThrow("foto"))
                 uriFotoSeleccionada = Uri.parse(uriStr)
 
                 try {
-                    // Intentamos pedir el permiso persistente
-                    contentResolver.takePersistableUriPermission(
-                        uriFotoSeleccionada!!,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                    previewImage.setImageURI(uriFotoSeleccionada)
-                    previewImage.visibility = View.VISIBLE
+                    if (esDeGaleria(uriFotoSeleccionada!!)) {
+                        // Solo si viene de la galería (SAF)
+                        contentResolver.takePersistableUriPermission(
+                            uriFotoSeleccionada!!,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    }
 
-                } catch (e: SecurityException) {
-                    // 🔴 No se puede acceder a la URI
+                    // Verifica acceso real a la imagen
+                    contentResolver.openInputStream(uriFotoSeleccionada!!)?.use {
+                        previewImage.setImageURI(uriFotoSeleccionada)
+                        previewImage.visibility = View.VISIBLE
+                        Log.d("IMG_OK", "Imagen mostrada correctamente: $uriStr")
+                    } ?: throw FileNotFoundException("InputStream nulo")
+
+                } catch (e: Exception) {
                     uriFotoSeleccionada = null
+                    previewImage.setImageURI(null)
                     previewImage.visibility = View.GONE
-                    Toast.makeText(this, "No se puede acceder a la imagen seleccionada previamente", Toast.LENGTH_SHORT).show()
+                    Log.e("IMG_ERR", "Error al mostrar imagen: ${e.message}")
+                    Toast.makeText(
+                        this,
+                        "No se puede acceder a la imagen seleccionada previamente",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
 
@@ -134,20 +157,27 @@ class NuevoLugarActivity : AppCompatActivity() {
         etFechaHora.setOnClickListener {
             val ahora = Calendar.getInstance()
 
-            DatePickerDialog(this, { _, year, month, day ->
-                TimePickerDialog(this, { _, hour, minute ->
-                    val calendario = Calendar.getInstance()
-                    calendario.set(year, month, day, hour, minute)
+            DatePickerDialog(
+                this,
+                { _, year, month, day ->
+                    TimePickerDialog(this, { _, hour, minute ->
+                        val calendario = Calendar.getInstance()
+                        calendario.set(year, month, day, hour, minute)
 
-                    val ahoraMillis = System.currentTimeMillis()
-                    if (calendario.timeInMillis > ahoraMillis) {
-                        Toast.makeText(this, "La fecha no puede ser futura", Toast.LENGTH_SHORT).show()
-                    } else {
-                        val formato = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                        etFechaHora.setText(formato.format(calendario.time))
-                    }
-                }, ahora.get(Calendar.HOUR_OF_DAY), ahora.get(Calendar.MINUTE), true).show()
-            }, ahora.get(Calendar.YEAR), ahora.get(Calendar.MONTH), ahora.get(Calendar.DAY_OF_MONTH)).show()
+                        val ahoraMillis = System.currentTimeMillis()
+                        if (calendario.timeInMillis > ahoraMillis) {
+                            Toast.makeText(this, "La fecha no puede ser futura", Toast.LENGTH_SHORT)
+                                .show()
+                        } else {
+                            val formato = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                            etFechaHora.setText(formato.format(calendario.time))
+                        }
+                    }, ahora.get(Calendar.HOUR_OF_DAY), ahora.get(Calendar.MINUTE), true).show()
+                },
+                ahora.get(Calendar.YEAR),
+                ahora.get(Calendar.MONTH),
+                ahora.get(Calendar.DAY_OF_MONTH)
+            ).show()
         }
         // Para coger foto de la galeria
         btnGaleria.setOnClickListener {
@@ -161,16 +191,17 @@ class NuevoLugarActivity : AppCompatActivity() {
         }
         // Para sacar una foto
         btnCamara.setOnClickListener {
-            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-
-            // Crear URI para guardar la imagen temporal
-            val imageFile = File.createTempFile("foto_", ".jpg", cacheDir)
+            val photoFile = File.createTempFile("foto_", ".jpg", cacheDir)
             uriFotoSeleccionada = FileProvider.getUriForFile(
                 this,
-                "${packageName}.provider", // defined in manifest
-                imageFile
+                "${packageName}.provider",
+                photoFile
             )
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, uriFotoSeleccionada)
+
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uriFotoSeleccionada)
+            }
+
             startActivityForResult(intent, REQUEST_IMAGE_CAPTURE)
         }
         // Comprueba que todos los campos estén ok y guarda en la bbdd
@@ -224,7 +255,10 @@ class NuevoLugarActivity : AppCompatActivity() {
                     put(LugaresContract.LugarEntry.COLUMN_NOMBRE, etNombre.text.toString())
                     put(LugaresContract.LugarEntry.COLUMN_TIPO, spinnerTipo.selectedItem.toString())
                     put(LugaresContract.LugarEntry.COLUMN_DIRECCION, etDireccion.text.toString())
-                    put(LugaresContract.LugarEntry.COLUMN_TELEFONO, etTelefono.text.toString().toInt())
+                    put(
+                        LugaresContract.LugarEntry.COLUMN_TELEFONO,
+                        etTelefono.text.toString().toInt()
+                    )
                     put(LugaresContract.LugarEntry.COLUMN_WEB, etWeb.text.toString())
                     put(LugaresContract.LugarEntry.COLUMN_FECHA_HORA, etFechaHora.text.toString())
                     put(LugaresContract.LugarEntry.COLUMN_CALIFICACION, slider.value.toInt())
@@ -246,7 +280,8 @@ class NuevoLugarActivity : AppCompatActivity() {
                 setResult(RESULT_OK)
                 finish()
             } else {
-                Toast.makeText(this, "Completá todos los campos correctamente", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Completá todos los campos correctamente", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
         // simplemente cerramos sin guardar
@@ -276,6 +311,10 @@ class NuevoLugarActivity : AppCompatActivity() {
         }
     }
 
+    fun esDeGaleria(uri: Uri): Boolean {
+        return uri.authority == "com.android.providers.media.documents"
+    }
+
     // Funcion para cuando volvemos de la galería/echar una foto:
     // Si viene bien ponemos la foto para que se vea
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -288,32 +327,70 @@ class NuevoLugarActivity : AppCompatActivity() {
                 REQUEST_IMAGE_PICK -> {
                     uriFotoSeleccionada = data?.data
 
-                    uriFotoSeleccionada?.let { uri ->
-                        // Pedimos persistencia del permiso
-                        contentResolver.takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
-
-                        // Mostramos la imagen en el ImageView
-                        previewImage.setImageURI(uri)
-                        previewImage.visibility = View.VISIBLE
-                    }
+//                    uriFotoSeleccionada?.let { uri ->
+//                        // Pedimos persistencia del permiso
+//                        contentResolver.takePersistableUriPermission(
+//                            uri,
+//                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+//                        )
+//
+//                        // Mostramos la imagen en el ImageView
+//                        previewImage.setImageURI(uri)
+//                        previewImage.visibility = View.VISIBLE
+//                    }
                 }
 
                 REQUEST_IMAGE_CAPTURE -> {
-                    uriFotoSeleccionada?.let { uri ->
-                        previewImage.setImageURI(uri)
-                        previewImage.visibility = View.VISIBLE
+//                    uriFotoSeleccionada?.let { uri ->
+//                        previewImage.setImageURI(uri)
+//                        previewImage.visibility = View.VISIBLE
+//                    }
+
+                    uriFotoSeleccionada?.let { tempUri ->
+
+                        val nombreArchivo = "foto_${System.currentTimeMillis()}.jpg"
+
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.Images.Media.DISPLAY_NAME, nombreArchivo)
+                            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                            put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/MiApp")
+                        }
+
+                        val resolver = contentResolver
+                        val uriGaleria = resolver.insert(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            contentValues
+                        )
+
+                        if (uriGaleria != null) {
+                            // Copiar datos desde el archivo temporal a MediaStore
+                            resolver.openOutputStream(uriGaleria).use { outputStream ->
+                                contentResolver.openInputStream(tempUri).use { inputStream ->
+                                    inputStream?.copyTo(outputStream!!)
+                                }
+                            }
+
+
+
+                            Log.d("Camera", "✅ Imagen guardada en galería: $uriGaleria")
+
+                            // Guardar la URI definitiva
+                            uriFotoSeleccionada = uriGaleria
+
+                            previewImage.setImageURI(uriFotoSeleccionada)
+                            previewImage.visibility = View.VISIBLE
+                        } else {
+                            Log.e("Camera", "❌ No se pudo guardar en galería.")
+                        }
                     }
                 }
             }
-        }
 
-        if (requestCode == 1234 && resultCode == RESULT_OK && data != null) {
-            val direccion = data.getStringExtra("direccion")
-            val etDireccion = findViewById<EditText>(R.id.etDireccion)
-            etDireccion.setText(direccion ?: "")
+            if (requestCode == 1234 && resultCode == RESULT_OK && data != null) {
+                val direccion = data.getStringExtra("direccion")
+                val etDireccion = findViewById<EditText>(R.id.etDireccion)
+                etDireccion.setText(direccion ?: "")
+            }
         }
     }
 }

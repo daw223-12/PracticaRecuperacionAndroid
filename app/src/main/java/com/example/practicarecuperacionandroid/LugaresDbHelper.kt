@@ -33,9 +33,9 @@ class LugaresDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         """.trimIndent()
 
         val lugaresEjemplo = listOf(
-            arrayOf("Parque Central", "Parque", "Calle Falsa 123", 123456789, "http://parquecentral.com", "2024-05-03 10:30:00", 4.5, "foto1.jpg"),
-            arrayOf("Museo Histórico", "Museo", "Av. Historia 456", 987654321, "http://museohistorico.com", "2024-05-02 15:00:00", 4.0, "foto2.jpg"),
-            arrayOf("Restaurante Sabores", "Restaurante", "Calle Gourmet 789", 112233445, "http://sabores.com", "2024-05-01 20:00:00", 4.7, "foto3.jpg")
+            arrayOf("Plaza Mayor de Madrid", "Parque", "Plaza Mayor, 28012 Madrid, España.", 123456789, "http://parquecentral.com", "2024-05-03 10:30:00", 4.5, "foto1.jpg"),
+            arrayOf("Museo del Prado", "Museo", "Museo del Prado, Calle de Ruiz de Alarcón, 23, 28014 Madrid, España.", 987654321, "http://museohistorico.com", "2024-05-02 15:00:00", 4.0, "foto2.jpg"),
+            arrayOf("Calle de alcalá", "Restaurante", "Calle de Alcalá, 123, 28009 Madrid, España.", 112233445, "http://sabores.com", "2024-05-01 20:00:00", 4.7, "foto3.jpg")
         )
 
         for (lugar in lugaresEjemplo) {
